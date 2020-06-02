@@ -18,4 +18,5 @@ object Dependencies {
   lazy val kafkaScala = "org.apache.kafka" %% "kafka-streams-scala" % "2.3.0"
   lazy val kafkaSpark = "org.apache.spark" %% "spark-streaming-kafka-0-10" % "2.4.0"
   lazy val kafkaStreamSpark = "org.apache.spark" %% "spark-streaming-kafka" % "1.6.3"
+  lazy val isolationForest = "com.linkedin.isolation-forest" % "isolation-forest_2.4.3_2.11" % "1.0.0"
 }

@@ -8,16 +8,7 @@ import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.sql.types.{DoubleType, IntegerType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
-object AnomalyDetector {
-  def main(args: Array[String]): Unit = {
-
-    val spark = SparkSession.builder().appName("example").master("local").getOrCreate()
-    spark.sparkContext.setLogLevel("ERROR")
-    Logger.getLogger("org").setLevel(Level.ERROR)
-    Logger.getLogger("akka").setLevel(Level.ERROR)
-    val conf = ConfigFactory.load("application.conf")
-    run(spark, conf)
-  }
+object AnomalyDetector extends AnomalyInterface {
 
   def run(sparkSession: SparkSession, conf: Config): Unit = {
     conf.getBoolean("training") match {
@@ -26,7 +17,7 @@ object AnomalyDetector {
     }
   }
 
-  def training(sparkSession: SparkSession, conf: Config) = {
+  private def training(sparkSession: SparkSession, conf: Config) = {
     val schema = StructType(
       StructField("duration", DoubleType, nullable = true) ::
         StructField("network", DoubleType, nullable = true) ::
@@ -41,7 +32,7 @@ object AnomalyDetector {
     kmeans.fit(assembler)
   }
 
-  def predict(sparkSession: SparkSession, model: KMeansModel, config: Config): DataFrame = {
+  private def predict(sparkSession: SparkSession, model: KMeansModel, config: Config): DataFrame = {
     val schema = StructType(
       StructField("duration", DoubleType, nullable = true) ::
         StructField("network", DoubleType, nullable = true) ::
@@ -55,5 +46,16 @@ object AnomalyDetector {
     val predictions = model.transform(assembler)
     predictions.show(false)
     predictions
+  }
+
+  override def apply(sparkSession: SparkSession, conf: Config): Unit = {
+    if (conf.getBoolean("training")) {
+      val model = training(sparkSession, conf)
+      model.save("/home/swastik/workspace/models/Kmeans")
+      predict(sparkSession, model, conf)
+    } else {
+      val model = KMeansModel.load("/home/swastik/workspace/models/Kmeans")
+      predict(sparkSession, model, conf)
+    }
   }
 }
