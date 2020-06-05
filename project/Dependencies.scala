@@ -19,4 +19,5 @@ object Dependencies {
   lazy val kafkaSpark = "org.apache.spark" %% "spark-streaming-kafka-0-10" % "2.4.0"
   lazy val kafkaStreamSpark = "org.apache.spark" %% "spark-streaming-kafka" % "1.6.3"
   lazy val isolationForest = "com.linkedin.isolation-forest" % "isolation-forest_2.4.3_2.11" % "1.0.0"
+  lazy val elastic = "org.elasticsearch" % "elasticsearch-hadoop" % "7.3.1"
 }
