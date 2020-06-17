@@ -26,8 +26,9 @@ object AnomalyDetectionES {
     val config = ConfigFactory.load(APPLICATION_CONF)
 
     val inputDF = read(spark, config)
+    val expected = readTest(spark, config)
 
-    val anomaliesDF = detectAnomaly(spark, config, inputDF, inputDF)
+    val anomaliesDF = detectAnomaly(spark, config, inputDF, expected)
 
     write(spark, anomaliesDF, config)
   }
@@ -36,19 +37,40 @@ object AnomalyDetectionES {
     val source = scala.io.Source.fromFile(config.getString(SCHEMA_FILE))
     val lines = try source.mkString finally source.close()
     val schema = DataType.fromJson(lines).asInstanceOf[StructType]
-    val inputData = sparkSession.read.format(ELASTIC_FORMAT).load(config.getString(SOURCE_ES_INDEX))
+    // val inputData = sparkSession.read.format(ELASTIC_FORMAT).load(config.getString(SOURCE_ES_INDEX))
+    val inputData = sparkSession.read.option("multiline", true).schema(schema).json("src/main/resources/data/sample.json")
+    inputData.show(false)
+    val featureCols = config.getString(FEATURES).split(";")
+    val assembler = new VectorAssembler().setInputCols(featureCols).setOutputCol(FEATURES)
+    val assembledDF = assembler.transform(inputData)
+//    val scaler = new StandardScaler()
+//      .setInputCol(RAW_FEATURES)
+//      .setOutputCol(FEATURES)
+//      .setWithStd(true)
+//      .setWithMean(true)
+//
+//    scaler.fit(assembledDF).transform(assembledDF)
+    assembledDF
+  }
+
+  def readTest(sparkSession: SparkSession, config: Config): DataFrame = {
+    val source = scala.io.Source.fromFile(config.getString(SCHEMA_FILE))
+    val lines = try source.mkString finally source.close()
+    val schema = DataType.fromJson(lines).asInstanceOf[StructType]
+    val inputData = sparkSession.read.option("header", true).schema(schema).csv("src/main/resources/data/expectedAnomalies")
 
     inputData.show(false)
     val featureCols = config.getString(FEATURES).split(";")
-    val assembler = new VectorAssembler().setInputCols(featureCols).setOutputCol(RAW_FEATURES)
+    val assembler = new VectorAssembler().setInputCols(featureCols).setOutputCol(FEATURES)
     val assembledDF = assembler.transform(inputData)
-    val scaler = new StandardScaler()
-      .setInputCol(RAW_FEATURES)
-      .setOutputCol(FEATURES)
-      .setWithStd(true)
-      .setWithMean(true)
-
-    scaler.fit(assembledDF).transform(assembledDF)
+//    val scaler = new StandardScaler()
+//      .setInputCol(RAW_FEATURES)
+//      .setOutputCol(FEATURES)
+//      .setWithStd(true)
+//      .setWithMean(true)
+//
+//    scaler.fit(assembledDF).transform(assembledDF)
+    assembledDF
   }
 
   def detectAnomaly(sparkSession: SparkSession, config: Config, trainingDF: DataFrame, testingDF: DataFrame): DataFrame = {
@@ -57,13 +79,13 @@ object AnomalyDetectionES {
       val isf = new IsolationForest()
         .setNumEstimators(100)
         .setBootstrap(false)
-        .setMaxSamples(0.8)
+        .setMaxSamples(0.6)
         .setMaxFeatures(2)
         .setFeaturesCol(FEATURES)
         .setPredictionCol(PREDICTED_LABEL)
         .setScoreCol(OUTLIER_SCORE)
-        .setContamination(0.1)
-        .setRandomSeed(1).fit(trainingDF.sample(0.6))
+        .setContamination(0.01)
+        .setRandomSeed(100).fit(trainingDF)
       // Reduced sample to 60% for testing
 
       isf.save(config.getString(MODEL_CHECKPOINT))
@@ -79,6 +101,6 @@ object AnomalyDetectionES {
   }
 
   def write(session: SparkSession, anomalyDF: DataFrame, config: Config): Unit = {
-    anomalyDF.saveToEs(config.getString(DESTINATION_ES_INDEX))
+    // anomalyDF.saveToEs(config.getString(DESTINATION_ES_INDEX))
   }
 }
