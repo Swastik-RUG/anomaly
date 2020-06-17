@@ -1,0 +1,29 @@
+{
+  "type": "struct",
+  "fields": [
+    {
+      "name": "duration",
+      "type": "double",
+      "nullable": true,
+      "metadata": {}
+    },
+    {
+      "name": "network",
+      "type": "double",
+      "nullable": true,
+      "metadata": {}
+    },
+    {
+      "name": "storage",
+      "type": "double",
+      "nullable": true,
+      "metadata": {}
+    },
+    {
+      "name": "anomaly",
+      "type": "integer",
+      "nullable": true,
+      "metadata": {}
+    }
+  ]
+}
