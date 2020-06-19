@@ -2,20 +2,14 @@ package spark.anomalydetection
 
 import java.io.FileWriter
 import java.nio.file.{Files, Paths}
-import java.util.Calendar
 
-import breeze.linalg.{DenseVector, linspace}
-import breeze.numerics.{cos, sin}
+import breeze.linalg.DenseVector
 import breeze.plot.{Figure, plot}
 import com.typesafe.config.Config
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions._
-import org.jfree.chart.axis.NumberAxis
+import org.apache.spark.sql.functions.col
 
-import scala.util.Random
-
-
-object ModelEvaluation {
+object ModelEvalationV3 {
   var epochs = 0.0
   val accuracyFig = Figure("Accuracy Eval")
   val TNfig = Figure("TrueNegative Eval")
@@ -30,7 +24,7 @@ object ModelEvaluation {
   var precisions: List[(Double, Double)] = List.empty
   var recalls: List[(Double, Double)] = List.empty
 
-  def evaluator(sparkSession: SparkSession, config: Config, df: DataFrame, refLabel: String, predictedLabel: String): Boolean = {
+  def evaluator(sparkSession: SparkSession, config: Config, df: DataFrame, refLabel: String, predictedLabel: String, sc: String): Boolean = {
 
     try {
       val total = df.count().toDouble
@@ -75,74 +69,47 @@ object ModelEvaluation {
       falsePositives = falsePositives :+ (epochs, falsePositiveRate)
       falseNegatives = falseNegatives :+ (epochs, falseNegative)
 
-      accuracyFig.clear()
+      //     accuracyFig.clear()
       val p = accuracyFig.subplot(0)
       val x = DenseVector(accuracies.map(_._1.toDouble): _*)
       val y = DenseVector(accuracies.map(_._2): _*)
       // p += plot(x, x)
-      p += plot(x, y)
+      p += plot(x, y, name = s"Contamination: $sc")
+      p.legend = true
       p.ylim(0.0, 1.0)
       p.setYAxisDecimalTickUnits()
       p.ylabel = "Eval Percentage %"
       p.xlabel = s"Epochs (value * $records = TrainingSize)"
       p.title = s"Accuracy with $outlierPerc outliers"
-      accuracyFig.refresh()
+      //    accuracyFig.refresh()
 
-      Pfig.clear()
+      //     Pfig.clear()
       val pp = Pfig.subplot(0)
       val xp = DenseVector(precisions.map(_._1.toDouble): _*)
       val yp = DenseVector(precisions.map(_._2): _*)
       // p += plot(x, x)
-      pp += plot(xp, yp, colorcode = "r", name = "Contamination: 0.3")
+      pp += plot(xp, yp, name = s"Contamination: $sc")
       pp.legend = true
       pp.ylim(0.0, 1.0)
       pp.setYAxisDecimalTickUnits()
       pp.ylabel = "Eval Percentage %"
       pp.xlabel = s"Epochs (value * $records = TrainingSize)"
       pp.title = s"precisions with $outlierPerc outliers"
-      Pfig.refresh()
+      //   Pfig.refresh()
 
-      Rfig.clear()
+      //   Rfig.clear()
       val pr = Rfig.subplot(0)
       val xr = DenseVector(recalls.map(_._1.toDouble): _*)
       val yr = DenseVector(recalls.map(_._2): _*)
       // p += plot(x, x)
-      pr += plot(xr, yr)
+      pr += plot(xr, yr, name = s"Contamination: $sc")
+      pr.legend = true
       pr.ylim(0.0, 1.0)
       pr.setYAxisDecimalTickUnits()
       pr.ylabel = "Eval Percentage %"
       pr.xlabel = s"Epochs (value * $records = TrainingSize)"
       pr.title = s"recalls with $outlierPerc outliers"
-      Rfig.refresh()
-
-
-      //
-      //    TNfig.clear()
-      //    val p1 = TNfig.subplot(0)
-      //    val x1 = DenseVector(trueNegatives.map(_._1.toDouble): _*)
-      //    val y1 = DenseVector(trueNegatives.map(_._2): _*)
-      //    // p1 += plot(x, x)
-      //    p1 += plot(x, y)
-      //    p1.title = "TN"
-      //    TNfig.refresh()
-      //
-      //    FPfig.clear()
-      //    val p2 = FPfig.subplot(0)
-      //    val x2 = DenseVector(falsePositives.map(_._1.toDouble): _*)
-      //    val y2 = DenseVector(falsePositives.map(_._2): _*)
-      //    // p2 += plot(x, x)
-      //    p2 += plot(x, y)
-      //    p2.title = "FP"
-      //    FPfig.refresh()
-      //
-      //    FNfig.clear()
-      //    val p3 = FNfig.subplot(0)
-      //    val x3 = DenseVector(falseNegatives.map(_._1.toDouble): _*)
-      //    val y3 = DenseVector(falseNegatives.map(_._2): _*)
-      //    //  p3 += plot(x, x)
-      //    p3 += plot(x, y)
-      //    p3.title = "FN"
-      //    FNfig.refresh()
+      // Rfig.refresh()
 
       save(sparkSession)
 
@@ -155,6 +122,17 @@ object ModelEvaluation {
       case e: InterruptedException => save(sparkSession)
         false
     }
+  }
+
+  def refresh(): Unit = {
+    Rfig.clear()
+    Pfig.clear()
+    accuracyFig.clear()
+
+    Rfig.refresh()
+    Pfig.refresh()
+    accuracyFig.refresh()
+
   }
 
   def save(sparkSession: SparkSession, path: String = "src/main/resources/model/eval_metrics"): Unit = {

@@ -18,9 +18,9 @@ object DataSim {
         (randvalue, 0)
       } else {
         if (Random.nextDouble() <= 0.5)
-          (minValue - (1 + Random.nextInt((25 - 1) + 1)), 1)
+          (minValue - (1 + Random.nextInt((500 - 1) + 1)), 1)
         else
-          (maxValue + (1 + Random.nextInt((25 - 1) + 1)), 1)
+          (maxValue + (1 + Random.nextInt((500 - 1) + 1)), 1)
       }
     }
   }
