@@ -1,20 +1,17 @@
 package spark.anomalydetection
 
 import java.io.FileWriter
-import java.lang.InterruptedException
 
 import com.linkedin.relevance.isolationforest.IsolationForest
 import com.typesafe.config.ConfigFactory
-import org.apache.hadoop.hdfs.server.balancer.ExitStatus
 import org.apache.spark.ml.feature.VectorAssembler
-import org.apache.spark.ml.tuning.CrossValidator
-import org.apache.spark.mllib.evaluation.BinaryClassificationMetrics
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions.col
 import spark.anomalydetection.Constants.{FEATURES, OUTLIER_SCORE, PREDICTED_LABEL}
 import spark.example.DataSim
-import org.apache.spark.sql.functions._
 
-object TrainingDataEvaluator {
+// TODO: WORK IN PROGRESS
+object FeatureFocusedEvaluator {
   def main(args: Array[String]): Unit = {
     val spark = SparkSession.builder
       .master("local[*]")
@@ -37,6 +34,11 @@ object TrainingDataEvaluator {
     //    def detectAndFilterOutliers(df: DataFrame): DataFrame = {
     //      val statsDF = df.stat.approxQuantile(Array(FEATURES), Array(0.25, 0.75), 0.0)
     //    }
+
+    val modelSets = config.getString("ModelSets").split("[|]").map(models => {
+      val modelConfig = models.split(":")
+      (modelConfig(0), modelConfig(1).split(";"))
+    })
 
     val scenarios = config.getString("contaminationScenarios").split(";")
     var itr = config.getInt("minItr")

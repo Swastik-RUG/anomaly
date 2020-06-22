@@ -23,10 +23,18 @@ object ModelEvalationV3 {
   var falseNegatives: List[(Double, Double)] = List.empty
   var precisions: List[(Double, Double)] = List.empty
   var recalls: List[(Double, Double)] = List.empty
+  val colorPallet = (List("y", "m", "c", "r", "g", "b", "w", "k") cross List("-", "+", ".")).toList
+  private var sc_count = 0
+
+  var accuracies_p: Map[String, List[(Double, Double)]] = Map.empty
+  var recalls_p: Map[String, List[(Double, Double)]] = Map.empty
+  var precisions_p: Map[String, List[(Double, Double)]] = Map.empty
 
   def evaluator(sparkSession: SparkSession, config: Config, df: DataFrame, refLabel: String, predictedLabel: String, sc: String): Boolean = {
 
     try {
+      read(sparkSession, s"src/main/resources/model/eval_metrics$sc")
+
       val total = df.count().toDouble
       val records = config.getInt("recordsPerCall")
       val outlierPerc = "0%"
@@ -81,7 +89,7 @@ object ModelEvalationV3 {
       p.ylabel = "Eval Percentage %"
       p.xlabel = s"Epochs (value * $records = TrainingSize)"
       p.title = s"Accuracy with $outlierPerc outliers"
-      //    accuracyFig.refresh()
+      accuracyFig.refresh()
 
       //     Pfig.clear()
       val pp = Pfig.subplot(0)
@@ -95,7 +103,7 @@ object ModelEvalationV3 {
       pp.ylabel = "Eval Percentage %"
       pp.xlabel = s"Epochs (value * $records = TrainingSize)"
       pp.title = s"precisions with $outlierPerc outliers"
-      //   Pfig.refresh()
+      Pfig.refresh()
 
       //   Rfig.clear()
       val pr = Rfig.subplot(0)
@@ -109,9 +117,9 @@ object ModelEvalationV3 {
       pr.ylabel = "Eval Percentage %"
       pr.xlabel = s"Epochs (value * $records = TrainingSize)"
       pr.title = s"recalls with $outlierPerc outliers"
-      // Rfig.refresh()
+      Rfig.refresh()
 
-      save(sparkSession)
+      save(sparkSession, s"src/main/resources/model/eval_metrics$sc")
 
       if (accuracy >= 0.95)
         false
@@ -119,7 +127,7 @@ object ModelEvalationV3 {
         true
     }
     catch {
-      case e: InterruptedException => save(sparkSession)
+      case e: InterruptedException => save(sparkSession, s"src/main/resources/model/eval_metrics$sc")
         false
     }
   }
@@ -132,18 +140,20 @@ object ModelEvalationV3 {
     Rfig.refresh()
     Pfig.refresh()
     accuracyFig.refresh()
-
   }
 
   def save(sparkSession: SparkSession, path: String = "src/main/resources/model/eval_metrics"): Unit = {
     import sparkSession.implicits._
     val metricsToSave = List((epochs, accuracies(epochs.toInt - 1)._2, precisions(epochs.toInt - 1)._2, recalls(epochs.toInt - 1)._2))
     val r = sparkSession.sparkContext.parallelize(metricsToSave).toDF("epochs", "accuracies", "precisions", "recalls")
-    r.show(false)
     r.write.mode("append").json(path)
   }
 
   def read(sparkSession: SparkSession, path: String = "src/main/resources/model/eval_metrics"): Unit = {
+    accuracies = List.empty
+    precisions = List.empty
+    recalls = List.empty
+    epochs = 0.0
     if (Files.exists(Paths.get(path))) {
       val data = sparkSession.read.json(path).orderBy("epochs").collect().foreach(row => {
         val epoc = row.getAs[Double]("epochs")
@@ -156,6 +166,11 @@ object ModelEvalationV3 {
         epochs = epoc
       })
     }
+  }
+
+  // https://stackoverflow.com/questions/14740199/cross-product-in-scala
+  implicit class Crossable[X](xs: Traversable[X]) {
+    def cross[Y](ys: Traversable[Y]) = for {x <- xs; y <- ys} yield (x, y)
   }
 
 }
